@@ -5,3 +5,7 @@ radToParallelProjections.py: This Python script takes in a Radiance RAD geometry
 ### Requirements
 
 Python 3.x
+
+#### Packages
+numpy
+honeybee-radiance
