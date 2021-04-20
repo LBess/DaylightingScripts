@@ -2,13 +2,28 @@
 
 import os
 import sys
-
+import datetime
 import numpy as np
 
 import honeybee_radiance.reader as reader
 from honeybee_radiance.geometry import Polygon
 from honeybee_radiance.modifier.material import Plastic
 from honeybee_radiance.view import View
+
+
+##### Modify the following variables depending on your implementation
+# This is the desired file name for the OBJ and MTL files
+baseFileName = "scene"
+
+# This is the prefix (if any) for the Radiance renderings. 
+# If using a RIF script to generate the renderings, search for a PICTURE entry.
+# The prefix is the final non-directory portion of the path.
+# e.g. "PICTURE=pictures/scene", in this case "scene" is the prefix
+rifPicturePrefix = "scene"
+
+# The UP vector for the scene in Radiance
+sceneUp = [0.0, 1.0, 0.0]
+#####
 
 def listsSame(listA : [], listB : []) -> bool:
     """
@@ -17,7 +32,7 @@ def listsSame(listA : [], listB : []) -> bool:
     if len(listA) != len(listB):
         return False
 
-    for i in range(len(listB)):
+    for i in range(len(listA)):
         if not (listA[i] < listB[i] + 0.0001 and listA[i] > listB[i] - 0.0001):
             return False
 
@@ -108,6 +123,7 @@ def formsQuad(triangleA : Polygon, triangleB : Polygon) -> Polygon:
                 duplicateVerts.append(vertA)
                 if len(duplicateVerts) == 2:
                     return True
+                break
     
     return False
 
@@ -160,11 +176,31 @@ def getViewPosition(quad : Polygon, dimensions : [], normal : []) -> []:
     
     return viewPosition
 
-def writeMTLFile():
-    return
+def writeOBJFile(fileName: str, quads : []):
+    with open(fileName + ".obj", "w") as f:
+        f.write("# Parallel Projection OBJ File\nmtllib {0}.mtl\n\n".format(fileName))
+        faceCtr = 1
+        for quad in quads:
+            normal = getQuadNormal(quad)
+            vertices = quad.vertices
+            f.write("usemtl {0}_Texture\n".format(quad.identifier))
+            f.write("v {0:.3f} {1:.3f} {2:.3f}\nv {3:.3f} {4:.3f} {5:.3f}\nv {6:.3f} {7:.3f} {8:.3f}\nv {9:.3f} {10:.3f} {11:.3f}\n".format(vertices[0][0], vertices[0][1], vertices[0][2],
+                                                                                                                                            vertices[1][0], vertices[1][1], vertices[1][2],
+                                                                                                                                            vertices[2][0], vertices[2][1], vertices[2][2],
+                                                                                                                                            vertices[3][0], vertices[3][1], vertices[3][2]))
+            f.write("vt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n")
+            f.write("vn {0:.3f} {1:.3f} {2:.3f}\nvn {0:.3f} {1:.3f} {2:.3f}\nvn {0:.3f} {1:.3f} {2:.3f}\nvn {0:.3f} {1:.3f} {2:.3f}\n".format(normal[0], normal[1], normal[2]))
+            f.write("f {0}/{0}/{0} {1}/{1}/{1} {2}/{2}/{2} {3}/{3}/{3}\n\n".format(faceCtr, faceCtr + 1, faceCtr + 2, faceCtr + 3))
+            faceCtr += 4
 
-def writeOBJFile():
-    return
+def writeMTLFile(fileName: str, quads : []):
+    with open(fileName + ".mtl", "w") as f:
+        f.write("# Parallel Projection Texture MTL File\n\n")
+        for quad in quads:
+            if len(rifPicturePrefix) != 0:
+                f.write("newmtl {0}_Texture\nKa 1.000 1.000 1.000\nKd 1.000 1.000 1.000\nd 1.0\nillum 1\nmap_Kd {0}_{1}.hdr\n\n".format(rifPicturePrefix, quad.identifier))
+            else: 
+                f.write("newmtl {0}_Texture\nKa 1.000 1.000 1.000\nKd 1.000 1.000 1.000\nd 1.0\nillum 1\nmap_Kd {0}.hdr\n\n".format(quad.identifier))
 
 def main():
     argc = len(sys.argv)
@@ -177,10 +213,6 @@ def main():
         print("Error: .rad file not specified, usage: python radToParallelProjections.py <file.rad>")
         return -1
 
-    sceneUp = [0.0, 1.0, 0.0]
-    if argc > 5 and sys.argv[2] == "-vu":
-        for i in range(3):
-            sceneUp[i] = float(sys.argv[i+3])
     print("Scene up direction: [{0}, {1}, {2}]".format(sceneUp[0], sceneUp[1], sceneUp[2]))
 
     stringObjects = reader.parse_from_file(filePath)
@@ -211,15 +243,27 @@ def main():
         elif len(polygon.vertices) == 4:
             quads.append(polygon)
 
-    for i in range(len(triangles) - 1):
+    trianglesMissed = []
+    i = 0
+    while True:
+        if i >= len(triangles) - 1:
+            break
+
         triangleA = triangles[i]
         triangleB = triangles[i+1]
+
         if formsQuad(triangleA, triangleB):
             quad = formQuad(triangleA, triangleB)
             quads.append(quad)
-            #quadTriangles.append((triangleA, triangleB))
-            #i += 1 we in Python!
+            i += 2
+        else:
+            trianglesMissed.append(triangleA)
+            i += 1
 
+    print(len(trianglesMissed))
+    for triangle in trianglesMissed:
+        print(triangle.identifier)
+    
     views = []
     for quad in quads:
         # type 'l' defines this view as a parallel projection
@@ -245,7 +289,8 @@ def main():
                     view.v_size = dimensions[i]
                     verticalSet = True
                     break
-        if not horizontalSet and not verticalSet:
+        
+        if not horizontalSet or not verticalSet:
             print("Error: " + view.identifier + " vh and/or vv not set")
             continue
 
@@ -275,6 +320,11 @@ def main():
 
     for view in views:
         print("view=" + view.identifier + " " + view.to_radiance())
+    
+    print("Total view count: {0}, Total quad count: {1}".format(len(views), len(quads)))
+
+    writeOBJFile(baseFileName, quads)
+    writeMTLFile(baseFileName, quads)
 
     return 0
 
