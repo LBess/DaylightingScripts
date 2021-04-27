@@ -10,7 +10,6 @@ from honeybee_radiance.geometry import Polygon
 from honeybee_radiance.modifier.material import Plastic
 from honeybee_radiance.view import View
 
-
 ##### Modify the following variables depending on your implementation
 # This is the desired file name for the OBJ and MTL files
 baseFileName = "scene"
@@ -23,6 +22,9 @@ rifPicturePrefix = "scene"
 
 # The UP vector for the scene in Radiance
 sceneUp = [0.0, 1.0, 0.0]
+
+# Used in floating point error calculations
+SIGMA = 0.0001
 #####
 
 def listsSame(listA : [], listB : []) -> bool:
@@ -109,7 +111,7 @@ def getTriangleNormal(triangle : Polygon) -> []:
     else:
         return []
 
-def formsQuad(triangleA : Polygon, triangleB : Polygon) -> Polygon:
+def formsQuad(triangleA : Polygon, triangleB : Polygon) -> bool:
     """
     Returns true if these triangles share two vertices.
     i.e. these two triangles together make up a quad
@@ -131,11 +133,12 @@ def formQuad(triangleA : Polygon, triangleB : Polygon) -> Polygon:
     """
     Forming a quad out of two complementary triangles
     """
-    vertices = [0.0, 0.0, 0.0, 0.0]
+    vertices = [[], [], [], []]
     vertices[0] = triangleA.vertices[0]
     vertices[1] = triangleA.vertices[1]
     vertices[3] = triangleA.vertices[2]
 
+    # First we search for the unique vertex in triangle B
     for i in range(len(triangleB.vertices)):
         isDuplicate = False
         vertB = triangleB.vertices[i]
@@ -144,11 +147,28 @@ def formQuad(triangleA : Polygon, triangleB : Polygon) -> Polygon:
             if listsSame(vertB, vertA):
                 isDuplicate = True
                 break
-        
+
+        # Once we find the vertex unique to the second triangle, we assign it and break out
         if not isDuplicate:
             vertices[2] = vertB
             break
     
+    # Next we check if the vertex ordering needs to be switched
+    # This is necessary when two or more elements switch from one vertex to the next
+    for i in range(3):
+        differentElements = 0
+        for j in range(3):
+            if vertices[i][j] < vertices[i+1][j] - SIGMA or vertices[i][j] > vertices[i+1][j] + SIGMA:
+                differentElements += 1
+
+        # Swap
+        if differentElements > 1:
+            # Note that this could throw an index error for the first and last vertices, but during my testing this has been a sufficient workaround
+            tmp = vertices[i-1]
+            vertices[i-1] = vertices[i]
+            vertices[i] = tmp
+            break
+
     quad = Polygon(triangleA.identifier, vertices)
     quad.modifier = triangleA.modifier
     return quad
@@ -251,7 +271,6 @@ def main():
 
         triangleA = triangles[i]
         triangleB = triangles[i+1]
-
         if formsQuad(triangleA, triangleB):
             quad = formQuad(triangleA, triangleB)
             quads.append(quad)
@@ -281,7 +300,7 @@ def main():
         verticalSet = False
         for i in range(3):
             # Accounting for floating point errors
-            if dimensions[i] > 0.0001:
+            if dimensions[i] > SIGMA:
                 if not horizontalSet:
                     view.h_size = dimensions[i]
                     horizontalSet = True
