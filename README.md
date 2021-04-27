@@ -31,3 +31,5 @@ Python 3.x
 ### Images
 
 ![Office scene in Blender with parallel projection textures on each quad](pictures/blender_obj_model.png "Office scene in Blender with parallel projection textures on each quad")
+Office scene in Blender with parallel projection textures on each quad
+
