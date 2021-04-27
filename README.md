@@ -27,3 +27,7 @@ Python 3.x
 * MTL: Wavefront MTL file
 * RAD: Radiance scene descrption file, usually contains geometry and material information.
 * RIF: Radiance rendering script
+
+### Images
+
+![Office scene in Blender with parallel projection textures on each quad](pictures/blender_obj_model.png "Office scene in Blender with parallel projection textures on each quad")

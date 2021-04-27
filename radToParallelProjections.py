@@ -279,9 +279,9 @@ def main():
             trianglesMissed.append(triangleA)
             i += 1
 
-    print(len(trianglesMissed))
+    print("Total triangles not formed into quads: {0}".format(len(trianglesMissed)))
     for triangle in trianglesMissed:
-        print(triangle.identifier)
+        print("Triangle: {0}".format(triangle.identifier))
     
     views = []
     for quad in quads:
@@ -289,7 +289,7 @@ def main():
         view = View(quad.identifier, type='l')
 
         # Get the dimensions of the quad. 
-        # One of these should be approximately 0.0
+        # One of these should be approximately 0.0 because a quad is two dimensional
         dimensions = [0, 0, 0]
         for i in range(3):
             dimensions[i] = getDimensionLength(quad, i)
@@ -339,7 +339,6 @@ def main():
 
     for view in views:
         print("view=" + view.identifier + " " + view.to_radiance())
-    
     print("Total view count: {0}, Total quad count: {1}".format(len(views), len(quads)))
 
     writeOBJFile(baseFileName, quads)
