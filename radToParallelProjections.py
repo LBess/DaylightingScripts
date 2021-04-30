@@ -1,4 +1,4 @@
-# Liam Bessell, 2/8/21
+# Liam Bessell
 
 import os
 import sys
@@ -10,18 +10,20 @@ from honeybee_radiance.geometry import Polygon
 from honeybee_radiance.modifier.material import Plastic
 from honeybee_radiance.view import View
 
-##### Modify the following variables depending on your implementation
+##### Global constants
+# Modify the following variables depending on your implementation
+
 # This is the desired file name for the OBJ and MTL files
-baseFileName = "scene"
+BASE_FILE_NAME = "scene"
 
 # This is the prefix (if any) for the Radiance renderings. 
 # If using a RIF script to generate the renderings, search for a PICTURE entry.
 # The prefix is the final non-directory portion of the path.
 # e.g. "PICTURE=pictures/scene", in this case "scene" is the prefix
-rifPicturePrefix = "scene"
+RIF_PICTURE_PREFIX = "scene"
 
 # The UP vector for the scene in Radiance
-sceneUp = [0.0, 1.0, 0.0]
+SCENE_UP = [0.0, 0.0, 1.0]
 
 # Used in floating point error calculations
 SIGMA = 0.0001
@@ -35,7 +37,7 @@ def listsSame(listA : [], listB : []) -> bool:
         return False
 
     for i in range(len(listA)):
-        if not (listA[i] < listB[i] + 0.0001 and listA[i] > listB[i] - 0.0001):
+        if not (listA[i] < listB[i] + SIGMA and listA[i] > listB[i] - SIGMA):
             return False
 
     return True
@@ -188,11 +190,11 @@ def getViewPosition(quad : Polygon, dimensions : [], normal : []) -> []:
 
     viewPosition = []
     for i in range(3):
-        if dimensions[i] > 0.0001:
+        if dimensions[i] > SIGMA:
             viewPosition.append(dimensionMinimums[i] + dimensions[i] / 2)
         else:
             # We can use any of the quad's vertices, because they all have the same value for this dimension
-            viewPosition.append(quad.vertices[0][i] + normal[i])
+            viewPosition.append(quad.vertices[0][i] + 0.1 * normal[i])
     
     return viewPosition
 
@@ -203,7 +205,10 @@ def writeOBJFile(fileName: str, quads : []):
         for quad in quads:
             normal = getQuadNormal(quad)
             vertices = quad.vertices
-            f.write("usemtl {0}_Texture\n".format(quad.identifier))
+            if len(RIF_PICTURE_PREFIX) != 0:
+                f.write("usemtl {1}_{0}_texture\n".format(quad.identifier, RIF_PICTURE_PREFIX))
+            else:
+                f.write("usemtl {0}_texture\n".format(quad.identifier))
             f.write("v {0:.3f} {1:.3f} {2:.3f}\nv {3:.3f} {4:.3f} {5:.3f}\nv {6:.3f} {7:.3f} {8:.3f}\nv {9:.3f} {10:.3f} {11:.3f}\n".format(vertices[0][0], vertices[0][1], vertices[0][2],
                                                                                                                                             vertices[1][0], vertices[1][1], vertices[1][2],
                                                                                                                                             vertices[2][0], vertices[2][1], vertices[2][2],
@@ -217,10 +222,10 @@ def writeMTLFile(fileName: str, quads : []):
     with open(fileName + ".mtl", "w") as f:
         f.write("# Parallel Projection Texture MTL File\n\n")
         for quad in quads:
-            if len(rifPicturePrefix) != 0:
-                f.write("newmtl {0}_Texture\nKa 1.000 1.000 1.000\nKd 1.000 1.000 1.000\nd 1.0\nillum 1\nmap_Kd {0}_{1}.hdr\n\n".format(rifPicturePrefix, quad.identifier))
+            if len(RIF_PICTURE_PREFIX) != 0:
+                f.write("newmtl {1}_{0}_texture\nKa 1.000 1.000 1.000\nKd 1.000 1.000 1.000\nd 1.0\nillum 1\nmap_Kd {1}_{0}.hdr\n\n".format(quad.identifier, RIF_PICTURE_PREFIX))
             else: 
-                f.write("newmtl {0}_Texture\nKa 1.000 1.000 1.000\nKd 1.000 1.000 1.000\nd 1.0\nillum 1\nmap_Kd {0}.hdr\n\n".format(quad.identifier))
+                f.write("newmtl {0}_texture\nKa 1.000 1.000 1.000\nKd 1.000 1.000 1.000\nd 1.0\nillum 1\nmap_Kd {0}.hdr\n\n".format(quad.identifier))
 
 def main():
     argc = len(sys.argv)
@@ -233,8 +238,9 @@ def main():
         print("Error: .rad file not specified, usage: python radToParallelProjections.py <file.rad>")
         return -1
 
-    print("Scene up direction: [{0}, {1}, {2}]".format(sceneUp[0], sceneUp[1], sceneUp[2]))
+    print("Scene up direction: [{0}, {1}, {2}]".format(SCENE_UP[0], SCENE_UP[1], SCENE_UP[2]))
 
+    # Read in the RAD file
     stringObjects = reader.parse_from_file(filePath)
     polygons = []
     materials = []
@@ -255,6 +261,7 @@ def main():
             currentModifier = plastic
             materials.append(plastic)
 
+    # Loop through all the polygons read in from the RAD file and classify them as triangles or quads
     triangles = []
     quads = []
     for polygon in polygons:
@@ -263,6 +270,7 @@ def main():
         elif len(polygon.vertices) == 4:
             quads.append(polygon)
 
+    # Loop through all the triangles read in from the RAD file and attempt to form quads from them
     trianglesMissed = []
     i = 0
     while True:
@@ -283,11 +291,12 @@ def main():
     for triangle in trianglesMissed:
         print("Triangle: {0}".format(triangle.identifier))
     
+    # Loop through all the quads and generate a Radiance parallel projection view for it
     views = []
     for quad in quads:
         # type 'l' defines this view as a parallel projection
         view = View(quad.identifier, type='l')
-
+         
         # Get the dimensions of the quad. 
         # One of these should be approximately 0.0 because a quad is two dimensional
         dimensions = [0, 0, 0]
@@ -299,7 +308,6 @@ def main():
         horizontalSet = False
         verticalSet = False
         for i in range(3):
-            # Accounting for floating point errors
             if dimensions[i] > SIGMA:
                 if not horizontalSet:
                     view.h_size = dimensions[i]
@@ -326,11 +334,11 @@ def main():
         view.position = position
 
         # Set view up
-        view.up_vector = sceneUp
-        if listsSame(sceneUp, direction) or listsSame(sceneUp, normal):
-            if not listsSame(sceneUp, [0.0, 0.0, 1.0]):
+        view.up_vector = SCENE_UP
+        if listsSame(SCENE_UP, direction) or listsSame(SCENE_UP, normal):
+            if not listsSame(SCENE_UP, [0.0, 0.0, 1.0]):
                 view.up_vector = [0.0, 0.0, 1.0]
-            elif not listsSame(sceneUp, [0.0, 1.0, 0.0]):
+            elif not listsSame(SCENE_UP, [0.0, 1.0, 0.0]):
                 view.up_vector = [0.0, 1.0, 0.0]
             else:
                 view.up_vector = [1.0, 0.0, 0.0]
@@ -341,8 +349,8 @@ def main():
         print("view=" + view.identifier + " " + view.to_radiance())
     print("Total view count: {0}, Total quad count: {1}".format(len(views), len(quads)))
 
-    writeOBJFile(baseFileName, quads)
-    writeMTLFile(baseFileName, quads)
+    writeOBJFile(BASE_FILE_NAME, quads)
+    writeMTLFile(BASE_FILE_NAME, quads)
 
     return 0
 
