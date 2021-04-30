@@ -198,11 +198,12 @@ def getViewPosition(quad : Polygon, dimensions : [], normal : []) -> []:
     
     return viewPosition
 
-def writeOBJFile(fileName: str, quads : []):
+def writeOBJFile(fileName: str, quads : [], viewDict : {}):
     with open(fileName + ".obj", "w") as f:
         f.write("# Parallel Projection OBJ File\nmtllib {0}.mtl\n\n".format(fileName))
         faceCtr = 1
         for quad in quads:
+            view = viewDict[quad.identifier]
             normal = getQuadNormal(quad)
             vertices = quad.vertices
             if len(RIF_PICTURE_PREFIX) != 0:
@@ -213,7 +214,13 @@ def writeOBJFile(fileName: str, quads : []):
                                                                                                                                             vertices[1][0], vertices[1][1], vertices[1][2],
                                                                                                                                             vertices[2][0], vertices[2][1], vertices[2][2],
                                                                                                                                             vertices[3][0], vertices[3][1], vertices[3][2]))
-            f.write("vt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n")
+            viewUp = [val for val in view.up_vector]
+            if listsSame(viewUp, SCENE_UP):
+                f.write("vt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n")
+            else:
+                # This is also a bit hacky, but it works so far
+                # A better assignment of vt coordinates is, however, desired
+                f.write("vt 1 0\nvt 1 1\nvt 0 1\nvt 0 0\n")
             f.write("vn {0:.3f} {1:.3f} {2:.3f}\nvn {0:.3f} {1:.3f} {2:.3f}\nvn {0:.3f} {1:.3f} {2:.3f}\nvn {0:.3f} {1:.3f} {2:.3f}\n".format(normal[0], normal[1], normal[2]))
             f.write("f {0}/{0}/{0} {1}/{1}/{1} {2}/{2}/{2} {3}/{3}/{3}\n\n".format(faceCtr, faceCtr + 1, faceCtr + 2, faceCtr + 3))
             faceCtr += 4
@@ -292,7 +299,7 @@ def main():
         print("Triangle: {0}".format(triangle.identifier))
     
     # Loop through all the quads and generate a Radiance parallel projection view for it
-    views = []
+    viewDict = {}
     for quad in quads:
         # type 'l' defines this view as a parallel projection
         view = View(quad.identifier, type='l')
@@ -343,13 +350,13 @@ def main():
             else:
                 view.up_vector = [1.0, 0.0, 0.0]
 
-        views.append(view)
+        viewDict[quad.identifier] = view
 
-    for view in views:
+    for view in viewDict.values():
         print("view=" + view.identifier + " " + view.to_radiance())
-    print("Total view count: {0}, Total quad count: {1}".format(len(views), len(quads)))
+    print("Total view count: {0}, Total quad count: {1}".format(len(viewDict.values()), len(quads)))
 
-    writeOBJFile(BASE_FILE_NAME, quads)
+    writeOBJFile(BASE_FILE_NAME, quads, viewDict)
     writeMTLFile(BASE_FILE_NAME, quads)
 
     return 0
