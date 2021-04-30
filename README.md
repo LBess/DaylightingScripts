@@ -1,6 +1,8 @@
 ### Daylighting Scripts
 
-* radToParallelProjections.py: This Python script takes in a Radiance RAD geometry file and outputs 1) Radiance parallel projection view defintions for each quad and 2) An OBJ and MTL file to link the geometry to the parallel projection texture.
+* radToParallelProjections.py: This Python script takes in a Radiance RAD geometry file and outputs: 
+    * Radiance parallel projection view definitions for each quad and 
+    * An OBJ and MTL file to link the geometry to the parallel projection texture.
 
 ### Requirements
 
@@ -32,4 +34,3 @@ Python 3.x
 
 ![Office scene in Blender with parallel projection textures on each quad](pictures/blender_obj_model.png "Office scene in Blender with parallel projection textures on each quad")
 Office scene in Blender with parallel projection textures on each quad
-
