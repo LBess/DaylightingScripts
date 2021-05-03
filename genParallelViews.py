@@ -1,7 +1,7 @@
 # Liam Bessell
 
 import sys
-import datetime
+from datetime import datetime
 import numpy as np
 
 import honeybee_radiance.reader as reader
@@ -199,14 +199,14 @@ def getViewPosition(quad : Polygon, dimensions : [], normal : []) -> []:
 
 def writeOBJFile(fileName: str, quads : [], viewDict : {}):
     with open(fileName + ".obj", "w") as f:
-        f.write("# Parallel Projection OBJ File\nmtllib {0}.mtl\n\n".format(fileName))
+        f.write("# Parallel Projection OBJ File\n# Generated at {0}\n\nmtllib {1}.mtl\n\n".format(datetime.now(), fileName))
         faceCtr = 1
         for quad in quads:
             view = viewDict[quad.identifier]
             normal = getQuadNormal(quad)
             vertices = quad.vertices
             if len(RIF_PICTURE_PREFIX) != 0:
-                f.write("usemtl {1}_{0}_texture\n".format(quad.identifier, RIF_PICTURE_PREFIX))
+                f.write("usemtl {0}_{1}_texture\n".format(RIF_PICTURE_PREFIX, quad.identifier))
             else:
                 f.write("usemtl {0}_texture\n".format(quad.identifier))
             f.write("v {0:.3f} {1:.3f} {2:.3f}\nv {3:.3f} {4:.3f} {5:.3f}\nv {6:.3f} {7:.3f} {8:.3f}\nv {9:.3f} {10:.3f} {11:.3f}\n".format(vertices[0][0], vertices[0][1], vertices[0][2],
@@ -221,27 +221,31 @@ def writeOBJFile(fileName: str, quads : [], viewDict : {}):
                 # A better assignment of vt coordinates is, however, desired
                 f.write("vt 1 0\nvt 1 1\nvt 0 1\nvt 0 0\n")
             f.write("vn {0:.3f} {1:.3f} {2:.3f}\nvn {0:.3f} {1:.3f} {2:.3f}\nvn {0:.3f} {1:.3f} {2:.3f}\nvn {0:.3f} {1:.3f} {2:.3f}\n".format(normal[0], normal[1], normal[2]))
-            f.write("f {0}/{0}/{0} {1}/{1}/{1} {2}/{2}/{2} {3}/{3}/{3}\n\n".format(faceCtr, faceCtr + 1, faceCtr + 2, faceCtr + 3))
+            f.write("f {0}/{0}/{0} {1}/{1}/{1} {2}/{2}/{2} {3}/{3}/{3}\n\n".format(faceCtr, faceCtr+1, faceCtr+2, faceCtr+3))
             faceCtr += 4
+        
+        print("Created {0}.obj".format(fileName))
 
 def writeMTLFile(fileName: str, quads : []):
     with open(fileName + ".mtl", "w") as f:
-        f.write("# Parallel Projection Texture MTL File\n\n")
+        f.write("# Parallel Projection Texture MTL File\n# Generated at {0}\n\n".format(datetime.now()))
         for quad in quads:
             if len(RIF_PICTURE_PREFIX) != 0:
-                f.write("newmtl {1}_{0}_texture\nKa 1.000 1.000 1.000\nKd 1.000 1.000 1.000\nd 1.0\nillum 1\nmap_Kd {1}_{0}.hdr\n\n".format(quad.identifier, RIF_PICTURE_PREFIX))
+                f.write("newmtl {0}_{1}_texture\nKa 1.000 1.000 1.000\nKd 1.000 1.000 1.000\nd 1.0\nillum 1\nmap_Kd {0}_{1}.hdr\n\n".format(RIF_PICTURE_PREFIX, quad.identifier))
             else: 
                 f.write("newmtl {0}_texture\nKa 1.000 1.000 1.000\nKd 1.000 1.000 1.000\nd 1.0\nillum 1\nmap_Kd {0}.hdr\n\n".format(quad.identifier))
+        
+        print("Created {0}.mtl".format(fileName))
 
 def main():
     argc = len(sys.argv)
     if argc < 2:
-        print("Error: .rad file not specified, usage: python radToParallelProjections.py <file.rad>")
+        print("Error: .rad file not specified, usage: python3 genParallelViews.py <file.rad>")
         return -1
     
     filePath = sys.argv[1]
     if not filePath.endswith(".rad"):
-        print("Error: .rad file not specified, usage: python radToParallelProjections.py <file.rad>")
+        print("Error: .rad file not specified, usage: python3 genParallelViews.py <file.rad>")
         return -1
 
     print("Scene up direction: [{0}, {1}, {2}]".format(SCENE_UP[0], SCENE_UP[1], SCENE_UP[2]))
@@ -332,6 +336,7 @@ def main():
         if len(normal) == 0:
             print("Error: " + view.identifier + " vn not set")
             continue
+
         direction = (-normal[0], -normal[1], -normal[2])
         view.direction = direction
 
@@ -351,9 +356,10 @@ def main():
 
         viewDict[quad.identifier] = view
 
+    print("\n#####Radiance Parallel Views#####")
     for view in viewDict.values():
         print("view=" + view.identifier + " " + view.to_radiance())
-    print("Total view count: {0}, Total quad count: {1}".format(len(viewDict.values()), len(quads)))
+    print("##########\n\nTotal view count: {0}, Total quad count: {1}".format(len(viewDict.values()), len(quads)))
 
     writeOBJFile(BASE_FILE_NAME, quads, viewDict)
     writeMTLFile(BASE_FILE_NAME, quads)
