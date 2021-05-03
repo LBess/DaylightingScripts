@@ -1,6 +1,6 @@
 ### Daylighting Scripts
 
-This repository contains scripts for use with the [Radiance](#https://www.radiance-online.org/) validated lighting simulation tool.
+This repository contains scripts for use with the [Radiance](https://www.radiance-online.org/) validated lighting simulation tool.
 
 * genParallelViews.py: This Python script takes in a Radiance RAD geometry file and outputs: 
     * Radiance parallel projection view definitions for each quad and 
@@ -20,6 +20,7 @@ Python 3.x
     * Check the `RIF_PICTURE_PREFIX` global variable to make sure it matches the specification in your RIF script
     * The name of the generated OBJ and MTL file can be modified via the `BASE_FILE_NAME` global
     * The scene UP direction can be modified via the `SCENE_UP` global
+    * `VALID_MATERIALS` lists the supported primitive Radiance materials used when parsing the RAD file. You will need to manually add new materials to this global and the RAD parsing code if a material you use is not here.
     * Note that the inputted RAD file should match the RAD file being used in Radiance for the rendering
 * The Radiance views will be printed to the terminal. From here you can copy and paste them directly into a Radiance RIF script for rendering with rpict.
 * The OBJ and MTL file can be used to import the model and HDR textures into a 3D application like Blender.

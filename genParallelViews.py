@@ -7,6 +7,8 @@ import numpy as np
 import honeybee_radiance.reader as reader
 from honeybee_radiance.geometry import Polygon
 from honeybee_radiance.modifier.material import Plastic
+from honeybee_radiance.modifier.material import Metal
+from honeybee_radiance.modifier.material import Glass
 from honeybee_radiance.view import View
 
 ##### Global constants
@@ -26,6 +28,9 @@ SCENE_UP = [0.0, 0.0, 1.0]
 
 # Used in floating point error calculations
 SIGMA = 0.0001
+
+# Used for parsing the RAD file
+VALID_MATERIALS = ["plastic", "metal", "glass"]
 #####
 
 def listsSame(listA : [], listB : []) -> bool:
@@ -257,8 +262,16 @@ def main():
     currentModifier = None
     for stringObject in stringObjects:
         # This is a bit hacky right now. We get an exception if we try and parse a non-material or non-polygon
-        if not "plastic" in stringObject and not "polygon" in stringObject:
-            continue
+        if not "polygon" in stringObject:
+            validMaterial = False
+            for material in VALID_MATERIALS:
+                if material in stringObject:
+                    validMaterial = True
+                    break
+            
+            if not validMaterial:
+                print("Error: Can't parse '{0}' from RAD file. If this is a material try manually adding it to the script, else ignore.".format(stringObject))
+                continue
 
         primitiveDict = reader.string_to_dict(stringObject)
         if primitiveDict["type"] == "polygon":
@@ -270,6 +283,14 @@ def main():
             plastic = Plastic.from_primitive_dict(primitiveDict)
             currentModifier = plastic
             materials.append(plastic)
+        elif primitiveDict["type"] == "metal":
+            metal = Metal.from_primitive_dict(primitiveDict)
+            currentModifier = metal
+            materials.append(metal)
+        elif primitiveDict["type"] == "glass":
+            glass = Glass.from_primitive_dict(primitiveDict)
+            currentModifier = glass
+            materials.append(glass)
 
     # Loop through all the polygons read in from the RAD file and classify them as triangles or quads
     triangles = []
@@ -297,9 +318,11 @@ def main():
             trianglesMissed.append(triangleA)
             i += 1
 
-    print("Total triangles not formed into quads: {0}".format(len(trianglesMissed)))
-    for triangle in trianglesMissed:
-        print("Triangle: {0}".format(triangle.identifier))
+    if len(trianglesMissed) != 0:    
+        print("The following triangles from the RAD file couldn't be formed into quads: ", end="")
+        for triangle in trianglesMissed:
+            print("{0}".format(triangle.identifier), end=" ")
+        print()
     
     # Loop through all the quads and generate a Radiance parallel projection view for it
     viewDict = {}
@@ -356,10 +379,10 @@ def main():
 
         viewDict[quad.identifier] = view
 
-    print("\n#####Radiance Parallel Views#####")
+    print("\n-----Radiance Parallel Views-----")
     for view in viewDict.values():
         print("view=" + view.identifier + " " + view.to_radiance())
-    print("##########\n\nTotal view count: {0}, Total quad count: {1}".format(len(viewDict.values()), len(quads)))
+    print("----------\n\nTotal view count: {0}, Total quad count: {1}".format(len(viewDict.values()), len(quads)))
 
     writeOBJFile(BASE_FILE_NAME, quads, viewDict)
     writeMTLFile(BASE_FILE_NAME, quads)
