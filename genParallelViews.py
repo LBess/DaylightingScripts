@@ -124,11 +124,11 @@ def formsQuad(triangleA : Polygon, triangleB : Polygon) -> bool:
     """
     duplicateVerts = []
     for i in range(3):
-        vertA = triangleA.vertices[i]
+        vertexA = triangleA.vertices[i]
         for j in range(3):
-            vertB = triangleB.vertices[j]
-            if listsSame(vertA, vertB):
-                duplicateVerts.append(vertA)
+            vertexB = triangleB.vertices[j]
+            if listsSame(vertexA, vertexB):
+                duplicateVerts.append(vertexA)
                 if len(duplicateVerts) == 2:
                     return True
                 break
@@ -147,16 +147,16 @@ def formQuad(triangleA : Polygon, triangleB : Polygon) -> Polygon:
     # First we search for the unique vertex in triangle B
     for i in range(len(triangleB.vertices)):
         isDuplicate = False
-        vertB = triangleB.vertices[i]
+        vertexB = triangleB.vertices[i]
         for j in range(len(triangleA.vertices)):
-            vertA = triangleA.vertices[j]
-            if listsSame(vertB, vertA):
+            vertexA = triangleA.vertices[j]
+            if listsSame(vertexB, vertexA):
                 isDuplicate = True
                 break
 
         # Once we find the vertex unique to the second triangle, we assign it and break out
         if not isDuplicate:
-            vertices[2] = vertB
+            vertices[2] = vertexB
             break
     
     # Next we check if the vertex ordering needs to be switched
@@ -202,7 +202,7 @@ def getViewPosition(quad : Polygon, dimensions : [], normal : []) -> []:
     
     return viewPosition
 
-def writeOBJFile(fileName: str, quads : [], viewDict : {}):
+def writeOBJFile(fileName : str, quads : [], viewDict : {}):
     with open(fileName + ".obj", "w") as f:
         f.write("# Parallel Projection OBJ File\n# Generated at {0}\n\nmtllib {1}.mtl\n\n".format(datetime.now(), fileName))
         faceCtr = 1
@@ -231,7 +231,7 @@ def writeOBJFile(fileName: str, quads : [], viewDict : {}):
         
         print("Created {0}.obj".format(fileName))
 
-def writeMTLFile(fileName: str, quads : []):
+def writeMTLFile(fileName : str, quads : []):
     with open(fileName + ".mtl", "w") as f:
         f.write("# Parallel Projection Texture MTL File\n# Generated at {0}\n\n".format(datetime.now()))
         for quad in quads:
@@ -261,7 +261,6 @@ def main():
     materials = []
     currentModifier = None
     for stringObject in stringObjects:
-        # This is a bit hacky right now. We get an exception if we try and parse a non-material or non-polygon
         if not "polygon" in stringObject:
             validMaterial = False
             for material in VALID_MATERIALS:
@@ -269,6 +268,7 @@ def main():
                     validMaterial = True
                     break
             
+            # This is a bit hacky right now. We get an exception if we try and parse a non-material or non-polygon
             if not validMaterial:
                 print("Error: Can't parse '{0}' from RAD file. If this is a material try manually adding it to the script, else ignore.".format(stringObject))
                 continue
@@ -291,6 +291,8 @@ def main():
             glass = Glass.from_primitive_dict(primitiveDict)
             currentModifier = glass
             materials.append(glass)
+        else:
+            print("Error: Unable to assign material from '{0}'.".format(stringObject))
 
     # Loop through all the polygons read in from the RAD file and classify them as triangles or quads
     triangles = []
